@@ -1,0 +1,56 @@
+import requests
+import time
+import hmac
+import hashlib
+import base64
+
+API_KEY = 'your_api_key'
+SECRET_KEY = 'your_secret_key'
+PASS_PHRASE = 'your_pass_phrase'
+
+BASE_URL = 'https://www.okx.com'
+
+def get_server_time():
+    url = BASE_URL + '/api/v5/public/time'
+    response = requests.get(url)
+    return response.json()['data'][0]['ts']
+
+def sign(message, secret):
+    return base64.b64encode(hmac.new(secret.encode(), message.encode(), hashlib.sha256).digest())
+
+def create_headers(api_key, pass_phrase, timestamp, sign):
+    return {
+        'Content-Type': 'application/json',
+        'OK-ACCESS-KEY': api_key,
+        'OK-ACCESS-SIGN': sign,
+        'OK-ACCESS-TIMESTAMP': timestamp,
+        'OK-ACCESS-PASSPHRASE': pass_phrase,
+    }
+
+def transfer_funds(from_sub_account, to_main_account, currency, amount):
+    timestamp = get_server_time()
+    message = timestamp + 'POST' + '/api/v5/asset/transfer' + ''
+    sign_message = sign(message, SECRET_KEY)
+
+    headers = create_headers(API_KEY, PASS_PHRASE, timestamp, sign_message.decode())
+
+    data = {
+        "ccy": currency,
+        "amt": amount,
+        "from": "6",  # 6 означает субаккаунт
+        "to": "18",  # 18 означает основной аккаунт
+        "fromSubAccount": from_sub_account,
+        "toMainAccount": to_main_account
+    }
+
+    response = requests.post(BASE_URL + '/api/v5/asset/transfer', headers=headers, json=data)
+    return response.json()
+
+# Пример использования функции
+from_sub_account = 'sub_account_name'
+to_main_account = 'main_account_name'
+currency = 'BTC'
+amount = '0.01'
+
+response = transfer_funds(from_sub_account, to_main_account, currency, amount)
+print(response)
